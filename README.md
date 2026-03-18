@@ -66,7 +66,14 @@ sonar list -a                  # include desktop apps
 sonar list -c port,compose,image,url  # custom columns
 ```
 
-Available columns: `port`, `process`, `pid`, `type`, `url`, `container`, `image`, `containerport`, `compose`, `project`, `user`, `bind`, `ip`
+By default, sonar hides desktop apps and system services that happen to listen on TCP ports but aren't relevant to development. These include:
+
+- **macOS `.app` bundles** — apps like Figma, Discord, Spotify, and Slack open local ports for IPC or update checks
+- **macOS system services** — daemons under `/System/Library/` and `/usr/libexec/` (e.g. `rapportd`, `ControlCenter`, `AirPlay`)
+
+Use `-a` / `--all` to include them.
+
+Available columns: `port`, `process`, `pid`, `type`, `url`, `cpu`, `mem`, `threads`, `uptime`, `state`, `connections`, `container`, `image`, `containerport`, `compose`, `project`, `user`, `bind`, `ip`
 
 ### Inspect a port
 

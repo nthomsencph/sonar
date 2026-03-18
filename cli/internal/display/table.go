@@ -18,6 +18,7 @@ var DefaultColumns = []string{"port", "process", "container", "image", "containe
 // AllColumns lists every supported column name.
 var AllColumns = []string{
 	"port", "process", "pid", "type", "url",
+	"cpu", "mem", "threads", "uptime", "state", "connections",
 	"container", "image", "containerport", "compose", "project",
 	"user", "bind", "ip",
 }
@@ -141,6 +142,14 @@ func columnLabel(col string) string {
 		return "BIND"
 	case "ip":
 		return "IP"
+	case "cpu":
+		return "CPU%"
+	case "mem":
+		return "MEM"
+	case "threads":
+		return "THR"
+	case "connections":
+		return "CONN"
 	default:
 		return col
 	}
@@ -177,6 +186,24 @@ func columnValue(p ports.ListeningPort, col string) string {
 		return p.BindAddress
 	case "ip":
 		return p.IPVersion
+	case "cpu":
+		return fmt.Sprintf("%.1f", p.CPUPercent)
+	case "mem":
+		if p.MemoryRSS > 0 {
+			return ports.FormatBytes(p.MemoryRSS)
+		}
+		return ""
+	case "threads":
+		if p.ThreadCount > 0 {
+			return fmt.Sprintf("%d", p.ThreadCount)
+		}
+		return ""
+	case "uptime":
+		return p.Uptime
+	case "state":
+		return colorState(p.State)
+	case "connections":
+		return fmt.Sprintf("%d", p.Connections)
 	default:
 		return ""
 	}
@@ -198,6 +225,21 @@ func colorProcess(p ports.ListeningPort) string {
 		return Yellow(name)
 	default:
 		return Green(name)
+	}
+}
+
+func colorState(state string) string {
+	switch state {
+	case "running":
+		return Green(state)
+	case "sleeping", "idle":
+		return Dim(state)
+	case "zombie":
+		return Red(state)
+	case "stopped":
+		return Yellow(state)
+	default:
+		return state
 	}
 }
 

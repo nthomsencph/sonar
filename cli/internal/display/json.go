@@ -19,6 +19,14 @@ type JSONPort struct {
 	Type        string `json:"type"`
 	URL         string `json:"url"`
 
+	// Process stats
+	CPUPercent  float64 `json:"cpu_percent"`
+	MemoryRSS   int64   `json:"memory_rss_bytes"`
+	ThreadCount int     `json:"thread_count,omitempty"`
+	Uptime      string  `json:"uptime,omitempty"`
+	State       string  `json:"state,omitempty"`
+	Connections int     `json:"connections"`
+
 	// Docker fields
 	DockerContainer      string `json:"docker_container,omitempty"`
 	DockerImage          string `json:"docker_image,omitempty"`
@@ -41,6 +49,12 @@ func RenderJSON(w io.Writer, pp []ports.ListeningPort) error {
 			IPVersion:            p.IPVersion,
 			Type:                 p.Type.String(),
 			URL:                  p.URL(),
+			CPUPercent:           p.CPUPercent,
+			MemoryRSS:            p.MemoryRSS,
+			ThreadCount:          p.ThreadCount,
+			Uptime:               p.Uptime,
+			State:                p.State,
+			Connections:          p.Connections,
 			DockerContainer:      p.DockerContainer,
 			DockerImage:          p.DockerImage,
 			DockerComposeService: p.DockerComposeService,

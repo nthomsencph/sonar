@@ -50,6 +50,23 @@ var infoCmd = &cobra.Command{
 			printField("IP Version", lp.IPVersion)
 		}
 
+		fmt.Println()
+		fmt.Println(display.Bold("Stats:"))
+		printField("  CPU", fmt.Sprintf("%.1f%%", lp.CPUPercent))
+		if lp.MemoryRSS > 0 {
+			printField("  Memory", ports.FormatBytes(lp.MemoryRSS))
+		}
+		if lp.ThreadCount > 0 {
+			printField("  Threads", fmt.Sprintf("%d", lp.ThreadCount))
+		}
+		if lp.Uptime != "" {
+			printField("  Uptime", lp.Uptime)
+		}
+		if lp.State != "" {
+			printField("  State", lp.State)
+		}
+		printField("  Connections", fmt.Sprintf("%d", lp.Connections))
+
 		if lp.Type == ports.PortTypeDocker {
 			fmt.Println()
 			fmt.Println(display.Bold("Docker:"))

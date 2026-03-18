@@ -36,7 +36,16 @@ type ListeningPort struct {
 	BindAddress string
 	IPVersion   string // "IPv4" / "IPv6"
 	Type        PortType
-	IsApp       bool   // true for desktop apps (Figma, Discord, etc.)
+	IsApp       bool // true for desktop apps (Figma, Discord, etc.)
+
+	// Process stats
+	CPUPercent  float64 // CPU usage percentage
+	MemoryRSS   int64   // resident set size in bytes
+	ThreadCount int     // number of threads
+	StartTime   string  // process start time (raw from ps)
+	Uptime      string  // human-readable uptime
+	State       string  // process state (running, sleeping, etc.)
+	Connections int     // number of established connections on this port
 
 	// Docker fields (empty if not Docker)
 	DockerContainer      string

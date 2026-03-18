@@ -6,11 +6,13 @@ import (
 	"strings"
 )
 
-// Enrich populates the Command field and classifies the port type for each port.
+// Enrich populates the Command field, classifies the port type, and gathers
+// process stats (CPU, memory, threads, uptime, state, connections) for each port.
 func Enrich(ports []ListeningPort) {
 	for i := range ports {
 		if ports[i].PID > 0 {
 			ports[i].Command = getFullCommand(ports[i].PID)
+			enrichStats(&ports[i])
 		}
 		if ports[i].Type != PortTypeDocker {
 			ports[i].Type = classifyPort(ports[i].Port)
