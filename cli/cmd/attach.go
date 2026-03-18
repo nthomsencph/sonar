@@ -1,0 +1,106 @@
+package cmd
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"strconv"
+	"syscall"
+
+	"github.com/rkrebs/sonar/internal/display"
+	"github.com/rkrebs/sonar/internal/docker"
+	"github.com/rkrebs/sonar/internal/ports"
+	"github.com/spf13/cobra"
+)
+
+var attachShell string
+
+var attachCmd = &cobra.Command{
+	Use:   "attach <port>",
+	Short: "Attach to a running service on a port",
+	Long: `Attach to a running service on a port.
+
+For Docker containers, opens an interactive shell inside the container.
+For other services, opens a raw TCP connection to the port.`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		port, err := strconv.Atoi(args[0])
+		if err != nil {
+			return fmt.Errorf("invalid port: %s", args[0])
+		}
+
+		lp, err := ports.FindByPort(port)
+		if err != nil {
+			return err
+		}
+
+		// Enrich to get Docker info
+		enriched := []ports.ListeningPort{*lp}
+		docker.EnrichPorts(enriched)
+		ports.Enrich(enriched)
+		*lp = enriched[0]
+
+		// Docker containers: exec into the container
+		if lp.Type == ports.PortTypeDocker && lp.DockerContainer != "" {
+			return execDockerShell(lp.DockerContainer)
+		}
+
+		// Non-Docker: open a raw TCP connection
+		return execTCPConnect(port)
+	},
+}
+
+func init() {
+	attachCmd.Flags().StringVar(&attachShell, "shell", "", "Shell to use for Docker exec (default: auto-detect sh/bash)")
+	rootCmd.AddCommand(attachCmd)
+}
+
+// execDockerShell execs into a Docker container with an interactive shell.
+func execDockerShell(container string) error {
+	dockerPath, err := exec.LookPath("docker")
+	if err != nil {
+		return fmt.Errorf("docker not found in PATH")
+	}
+
+	shell := attachShell
+	if shell == "" {
+		shell = detectContainerShell(container)
+	}
+
+	fmt.Printf("%s %s %s\n\n",
+		display.Dim("Attaching shell to container"),
+		display.Bold(container),
+		display.Dim("("+shell+")"))
+
+	args := []string{"docker", "exec", "-it", container, shell}
+	return syscall.Exec(dockerPath, args, os.Environ())
+}
+
+// detectContainerShell tries bash first, falls back to sh.
+func detectContainerShell(container string) string {
+	cmd := exec.Command("docker", "exec", container, "bash", "-c", "exit 0")
+	if err := cmd.Run(); err == nil {
+		return "/bin/bash"
+	}
+	return "/bin/sh"
+}
+
+// execTCPConnect opens a raw TCP connection to localhost:<port>.
+func execTCPConnect(port int) error {
+	fmt.Printf("%s %s\n\n",
+		display.Dim("Connecting to"),
+		display.BoldCyan(fmt.Sprintf("localhost:%d", port)))
+
+	// Prefer ncat/nc for raw TCP connections
+	for _, name := range []string{"ncat", "nc"} {
+		binPath, err := exec.LookPath(name)
+		if err == nil {
+			args := []string{name, "localhost", strconv.Itoa(port)}
+			return syscall.Exec(binPath, args, os.Environ())
+		}
+	}
+
+	return fmt.Errorf("no TCP client found (install ncat or nc)\n\n%s",
+		display.Dim("Alternatively, connect manually:\n"+
+			fmt.Sprintf("  nc localhost %d", port)))
+}

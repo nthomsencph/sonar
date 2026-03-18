@@ -1,19 +1,27 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
-	"strings"
 
 	"github.com/rkrebs/sonar/internal/display"
 	"github.com/spf13/cobra"
 )
 
+const banner = `
+  ███████╗ ██████╗ ███╗   ██╗ █████╗ ██████╗
+  ██╔════╝██╔═══██╗████╗  ██║██╔══██╗██╔══██╗
+  ███████╗██║   ██║██╔██╗ ██║███████║██████╔╝
+  ╚════██║██║   ██║██║╚██╗██║██╔══██║██╔══██╗
+  ███████║╚██████╔╝██║ ╚████║██║  ██║██║  ██║
+  ╚══════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝  ╚═╝
+`
+
 var rootCmd = &cobra.Command{
 	Use:   "sonar",
 	Short: "Detect services listening on localhost ports",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return listRun(cmd, args)
-	},
+	Long:  display.Cyan(banner) + "\n  " + display.Dim("Detect and manage services listening on localhost ports."),
+	// No RunE — bare `sonar` shows help
 }
 
 func init() {
@@ -23,18 +31,11 @@ func init() {
 			display.NoColor = true
 		}
 	}
-
-	// Register list flags on root too since `sonar` delegates to listRun
-	rootCmd.Flags().BoolVar(&jsonFlag, "json", false, "Output as JSON")
-	rootCmd.Flags().StringVar(&filterFlag, "filter", "", "Filter by type: docker, user, system")
-	rootCmd.Flags().StringVar(&sortFlag, "sort", "port", "Sort by: port, pid, name, type")
-	rootCmd.Flags().BoolVarP(&allFlag, "all", "a", false, "Include desktop apps (hidden by default)")
-	rootCmd.Flags().StringVarP(&columnsFlag, "columns", "c", "",
-		"Columns to display (comma-separated: "+strings.Join(display.AllColumns, ", ")+")")
 }
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
