@@ -23,11 +23,10 @@ func Scan() ([]ListeningPort, error) {
 
 func scanLsof() ([]ListeningPort, error) {
 	out, err := exec.Command("lsof", "-iTCP", "-sTCP:LISTEN", "-n", "-P").CombinedOutput()
-	if err != nil {
-		if len(out) == 0 {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("lsof: %w\n%s", err, out)
+	if err != nil && len(out) == 0 {
+		// lsof exits non-zero when it can't inspect some processes (e.g. non-root),
+		// but still outputs the ports it can see. Only fail if there's no output at all.
+		return nil, nil
 	}
 
 	return parseLsof(string(out)), nil
