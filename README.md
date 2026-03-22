@@ -201,5 +201,5 @@ The `--stats` flag fetches per-process and per-container resource usage. For Doc
 Thanks to everyone who has contributed to sonar!
 
 <a href="https://github.com/RasKrebs/sonar/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=RasKrebs/sonar" />
+  <img src="https://stg.contrib.rocks/image?repo=RasKrebs/sonar" />
 </a>
