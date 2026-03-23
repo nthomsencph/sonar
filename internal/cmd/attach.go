@@ -5,7 +5,6 @@ import (
 	"os/exec"
 	"strconv"
 
-	"github.com/raskrebs/sonar/internal/display"
 	"github.com/raskrebs/sonar/internal/docker"
 	"github.com/raskrebs/sonar/internal/ports"
 	"github.com/spf13/cobra"
