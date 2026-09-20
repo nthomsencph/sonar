@@ -329,6 +329,35 @@ service just as they survive a metadata change. The one exception: extra spaces
 lining a trailing comment up (`cmd: x     # note`) collapse to one, because the
 YAML library keeps the comment but not its column.
 
+#### `sonar env`
+
+What the file resolves to is readable without starting anything:
+
+```sh
+sonar env                      # every service: port, url and its expanded env
+sonar env frontend             # one service, as export lines
+sonar env --json               # for tools
+```
+
+```
+SERVICE   PORT   URL                     ENV
+db        5432   http://localhost:5432
+api       21408  http://localhost:21408  DB_URL=postgres://localhost:5432/app
+frontend  21409  http://localhost:21409  VITE_API_URL=http://localhost:21408
+```
+
+A `port: auto` service that is not running is given its claim here, the same
+claim `sonar start` makes, so what `sonar env` prints is what a later start
+binds; a service that is already running keeps the port it is on. Named, a
+service comes out as `export` lines, so a shell can see what the service would:
+
+```sh
+eval "$(sonar env frontend)" && npm test
+```
+
+Behind it is `groups.env` on the daemon, for an editor or an agent that wires
+a worktree up before its services exist.
+
 ### `sonar up`
 
 ```sh

@@ -18,7 +18,7 @@ var contractMethods = []string{
 	"state.snapshot", "state.subscribe", "state.unsubscribe", "stream.cancel",
 	"ports.list", "ports.inspect", "ports.kill", "ports.rename", "ports.next",
 	"ports.wait", "ports.health", "ports.logs", "ports.graph", "ports.history",
-	"groups.list", "groups.inspect", "groups.kill", "groups.start",
+	"groups.list", "groups.inspect", "groups.kill", "groups.start", "groups.env",
 	"groups.assign", "groups.reload", "groups.init", "groups.rename",
 	"runs.register", "runs.unregister", "runs.list", "runs.spawn",
 	"claims.acquire", "claims.release", "claims.list",
@@ -163,6 +163,8 @@ func TestSchemaEnumsMatchGoEnums(t *testing.T) {
 		wantSources = append(wantSources, string(v))
 	}
 	assertEnum(t, doc.Definitions["Group"].Properties["source"], wantSources)
+
+	assertEnum(t, doc.Definitions["GroupsEnvService"].Properties["source"], AllPortSources)
 }
 
 func assertEnum(t *testing.T, raw json.RawMessage, want []string) {

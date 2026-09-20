@@ -1,6 +1,7 @@
 // Package groupstart serves `groups.start`: it walks a `sonar.yaml`'s
 // services in dependency order and spawns each one detached, streaming a chunk
-// per service as it goes (contract §1).
+// per service as it goes (contract §1). It also serves `groups.env`, which
+// runs the same port resolution and starts nothing.
 //
 // It lives outside internal/daemon because starting a service needs the run
 // registry, and the daemon package must not import it (contract §8). Linking
@@ -51,7 +52,7 @@ func handleGroupsStart(ctx context.Context, req *daemon.Request) (any, error) {
 	if err := req.Bind(&p); err != nil {
 		return nil, err
 	}
-	cfg, err := resolveConfig(req.Runtime, p)
+	cfg, err := resolveConfig(req.Runtime, p.Name, p.ConfigPath)
 	if err != nil {
 		return nil, err
 	}
@@ -180,13 +181,25 @@ func serviceEnv(caller map[string]string, svc groups.Service, port int, ports ma
 	for k, v := range caller {
 		over[k] = v
 	}
-	if port > 0 {
-		over["PORT"] = strconv.Itoa(port)
-	}
-	for k, v := range svc.Env {
-		over[k] = groups.Expand(v, svc.Name, ports)
+	for k, v := range serviceVars(svc, port, ports) {
+		over[k] = v
 	}
 	return layer(os.Environ(), over)
+}
+
+// serviceVars is the part of a service's environment that comes from the
+// file: PORT for a service with a port, and its own `env:` with every
+// reference expanded. It is what `groups.env` reports, so what a caller reads
+// there is byte for byte what a start would set.
+func serviceVars(svc groups.Service, port int, ports map[string]int) map[string]string {
+	out := make(map[string]string, len(svc.Env)+1)
+	if port > 0 {
+		out["PORT"] = strconv.Itoa(port)
+	}
+	for k, v := range svc.Env {
+		out[k] = groups.Expand(v, svc.Name, ports)
+	}
+	return out
 }
 
 // layer returns base with every key in over replaced or added.
@@ -223,12 +236,16 @@ type addressBook struct {
 	live  map[string]int
 	ports map[string]int
 	errs  map[string]error
+	// sources records where each resolved port came from, by service name,
+	// as one of the rpc.PortSource values; `groups.env` reports it.
+	sources map[string]string
 }
 
 func newAddressBook(rt *daemon.Runtime, cfg *groups.Config, group string) *addressBook {
 	b := &addressBook{
 		rt: rt, cfg: cfg, group: group,
 		live: map[string]int{}, ports: map[string]int{}, errs: map[string]error{},
+		sources: map[string]string{},
 	}
 	// A service that is already up keeps the port it is on: the run registry
 	// knows the port sonar started it on, and the group row knows where
@@ -270,13 +287,17 @@ func (b *addressBook) port(name string) (int, error) {
 	case !ok || !svc.HasPort():
 	case svc.Port != 0:
 		port = svc.Port
+		b.sources[name] = rpc.PortSourceFixed
 	case b.live[name] != 0:
 		port = b.live[name]
+		b.sources[name] = rpc.PortSourceRunning
 	default:
 		port, err = daemon.AcquireServicePort(b.rt, b.cfg.Dir, name)
+		b.sources[name] = rpc.PortSourceClaimed
 	}
 	if err != nil {
 		b.errs[name] = err
+		delete(b.sources, name)
 		return 0, err
 	}
 	b.ports[name] = port
@@ -297,6 +318,14 @@ func (b *addressBook) forService(svc groups.Service) (map[string]int, error) {
 	for _, name := range names {
 		port, err := b.port(name)
 		if err != nil {
+			// A claim failure keeps its code and hint — an exhausted range is
+			// not_found, a held port is claim_conflict — so `groups.env` can
+			// answer with them. A start chunk renders the error through
+			// detail() and reads exactly as it did.
+			var re *rpc.Error
+			if errors.As(err, &re) {
+				return nil, rpc.NewError(re.Code, "no port for "+name+": "+re.Data.Detail, re.Data.Hint)
+			}
 			return nil, fmt.Errorf("no port for %s: %s", name, detail(err))
 		}
 		out[name] = port
@@ -421,11 +450,11 @@ func snapshot(rt *daemon.Runtime) state.Snapshot {
 	return snap
 }
 
-// resolveConfig finds the `sonar.yaml` this call is about, by path or by
-// group name.
-func resolveConfig(rt *daemon.Runtime, p rpc.GroupsStartParams) (*groups.Config, error) {
-	if p.ConfigPath != nil && strings.TrimSpace(*p.ConfigPath) != "" {
-		path := strings.TrimSpace(*p.ConfigPath)
+// resolveConfig finds the `sonar.yaml` a call is about, by path or by group
+// name; `groups.start` and `groups.env` locate the file the same way.
+func resolveConfig(rt *daemon.Runtime, name, configPath *string) (*groups.Config, error) {
+	if configPath != nil && strings.TrimSpace(*configPath) != "" {
+		path := strings.TrimSpace(*configPath)
 		if cfg, ok := rt.Scanner.ConfigAt(path); ok {
 			return cfg, nil
 		}
@@ -443,13 +472,13 @@ func resolveConfig(rt *daemon.Runtime, p rpc.GroupsStartParams) (*groups.Config,
 		}
 		return nil, rpc.NewError(rpc.CodeNotFound, "no usable "+groups.ConfigName+" at "+path, "")
 	}
-	if p.Name != nil && strings.TrimSpace(*p.Name) != "" {
-		name := strings.TrimSpace(*p.Name)
-		if cfg, ok := rt.Scanner.ConfigNamed(name); ok {
+	if name != nil && strings.TrimSpace(*name) != "" {
+		group := strings.TrimSpace(*name)
+		if cfg, ok := rt.Scanner.ConfigNamed(group); ok {
 			return cfg, nil
 		}
 		return nil, rpc.NewError(rpc.CodeNotFound,
-			"no group named "+name+" has a "+groups.ConfigName,
+			"no group named "+group+" has a "+groups.ConfigName,
 			"`sonar groups` lists the configs this daemon knows; only a group with a config can be started")
 	}
 	return nil, rpc.NewError(rpc.CodeInvalidParams, "name or config_path is required",

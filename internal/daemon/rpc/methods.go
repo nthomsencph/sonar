@@ -86,6 +86,11 @@ type OKResult struct {
 // for the daemon's age.
 const CapabilityAutoPorts = "groups.autoports"
 
+// CapabilityEnv is announced by a daemon that serves `groups.env`. The CLI
+// checks for it before calling, so a daemon from before the method answers
+// with "restart it" rather than the dispatcher's generic unknown-method error.
+const CapabilityEnv = "groups.env"
+
 // Include lists the optional per-subscriber enrichments ("stats", "health").
 type Include []string
 
@@ -403,6 +408,59 @@ type GroupsStartResult struct {
 	// StartID is shared by every run this call starts, so the services
 	// brought up together can be told apart from the ones already running.
 	StartID string `json:"start_id,omitempty"`
+}
+
+// GroupsEnvParams names the file `groups.env` reads, the way groups.start
+// takes it: a group by name, or a config by path.
+type GroupsEnvParams struct {
+	HostParams
+	Name       *string `json:"name,omitempty"`
+	ConfigPath *string `json:"config_path,omitempty"`
+}
+
+// GroupsEnvResult is every service of the file, in the file's order, with the
+// port and the environment groups.start would give it — and nothing started.
+// A `port: auto` service that is not running has its port claimed by this
+// call, the same claim a start makes, so the answer holds until the claim
+// expires or the service comes up elsewhere.
+type GroupsEnvResult struct {
+	MutationResult
+	Group      string             `json:"group"`
+	ConfigPath string             `json:"config_path"`
+	Services   []GroupsEnvService `json:"services"`
+}
+
+// The sources a resolved port can have, the values GroupsEnvService.Source
+// takes. A fixed port is the file's; a running service keeps the port it is
+// on; a `port: auto` service that is not running is given its claim.
+const (
+	PortSourceFixed   = "fixed"
+	PortSourceRunning = "running"
+	PortSourceClaimed = "claimed"
+)
+
+// AllPortSources is the enum used by schema generation; the schema test pins
+// the struct tag on GroupsEnvService.Source to it.
+var AllPortSources = []string{PortSourceFixed, PortSourceRunning, PortSourceClaimed}
+
+// GroupsEnvService is one service's resolved port and environment.
+type GroupsEnvService struct {
+	Name string `json:"name"`
+	// Port is the port the service would be told to bind: its fixed port,
+	// the one it is already listening on, or its claim. Zero for a service
+	// that declares none.
+	Port int `json:"port,omitempty"`
+	// URL is http://localhost:<port>, what ${url} expands to. Empty with no
+	// port.
+	URL string `json:"url,omitempty"`
+	// Source says where Port came from: "fixed" (the file), "running" (the
+	// service is up and keeps its port) or "claimed" (a `port: auto` service
+	// that is not running). Empty for a service with no port.
+	Source string `json:"source,omitempty" jsonschema:"enum=fixed,enum=running,enum=claimed"`
+	// Env is PORT, for a service with a port, and the service's own `env:`
+	// with its references expanded: what the service sees on top of the
+	// caller's environment when it is started.
+	Env map[string]string `json:"env"`
 }
 
 // GroupsStartChunk is one service's outcome, pushed as it happens: it was

@@ -298,6 +298,7 @@ func init() {
 	Describe("groups.inspect", GroupsInspectParams{}, GroupsInspectResult{}, nil, nil)
 	Describe("groups.kill", GroupsKillParams{}, KillEnvelope{}, nil, nil)
 	Describe("groups.start", GroupsStartParams{}, GroupsStartResult{}, GroupsStartChunk{}, GroupsStartEnd{})
+	Describe("groups.env", GroupsEnvParams{}, GroupsEnvResult{}, nil, nil)
 	Describe("groups.assign", GroupsAssignParams{}, GroupsAssignResult{}, nil, nil)
 	Describe("groups.rename", GroupsRenameParams{}, GroupsRenameResult{}, nil, nil)
 	Describe("groups.reload", HostParams{}, GroupsReloadResult{}, nil, nil)
