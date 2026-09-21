@@ -3,7 +3,7 @@
   "$id": "https://github.com/raskrebs/sonar/docs/schema/protocol.schema.json",
   "title": "Sonar daemon protocol",
   "description": "Generated from the Go types in internal/state and internal/daemon/rpc. Do not edit by hand; run `go generate ./...`.",
-  "protocol_version": "1.0.0",
+  "protocol_version": "1.1.0",
   "definitions": {
     "ChangeGroup": {
       "properties": {
@@ -1081,6 +1081,85 @@
         "affected",
         "path",
         "config"
+      ]
+    },
+    "GroupsEnvParams": {
+      "properties": {
+        "host": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "config_path": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "GroupsEnvResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "affected": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "group": {
+          "type": "string"
+        },
+        "config_path": {
+          "type": "string"
+        },
+        "services": {
+          "items": {
+            "$ref": "#/definitions/GroupsEnvService"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object",
+      "required": [
+        "ok",
+        "affected",
+        "group",
+        "config_path",
+        "services"
+      ]
+    },
+    "GroupsEnvService": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "url": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "fixed",
+            "running",
+            "claimed"
+          ]
+        },
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "type": "object",
+      "required": [
+        "name",
+        "env"
       ]
     },
     "GroupsInitParams": {
@@ -4397,6 +4476,14 @@
       },
       "result": {
         "$ref": "#/definitions/GroupsConfigSetResult"
+      }
+    },
+    "groups.env": {
+      "params": {
+        "$ref": "#/definitions/GroupsEnvParams"
+      },
+      "result": {
+        "$ref": "#/definitions/GroupsEnvResult"
       }
     },
     "groups.init": {
